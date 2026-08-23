@@ -17,15 +17,43 @@ VERDE, VERMELHO, AMARELO, CINZA, ZERO = '\033[32m', '\033[31m', '\033[33m', '\03
 if not sys.stdout.isatty():
     VERDE = VERMELHO = AMARELO = CINZA = ZERO = ''
 
+# Onde se escreve cada fase — para o verificador dizer por onde comecar.
+ONDE = [
+    ('analise lexica',        'mplc/lexico.py',        'LINGUAGEM.md secao 2 e CONTRATOS.md secao 2'),
+    ('analise sintatica',     'mplc/sintatico.py',     'LINGUAGEM.md secoes 3 a 5 e CONTRATOS.md secao 3'),
+    ('analise semantica',     'mplc/semantica.py',     'LINGUAGEM.md secao 3 e CONTRATOS.md secao 4'),
+    ('tabela de simbolos',    'mplc/semantica.py',     'CONTRATOS.md secao 4'),
+    ('codigo de tres',        'mplc/intermediario.py', 'CONTRATOS.md secao 5'),
+    ('codigo intermediario',  'mplc/intermediario.py', 'CONTRATOS.md secao 5'),
+    ('geracao de codigo',     'mplc/gerador.py',       'CONTRATOS.md secao 6'),
+    ('maquina virtual',       'mplc/vm.py',            'CONTRATOS.md secao 6'),
+]
+
+def onde_escrever(fase):
+    for chave, arquivo, leitura in ONDE:
+        if chave in fase:
+            return arquivo, leitura
+    return None, None
+
 class Placar:
     def __init__(self):
         self.ok = self.falhas = 0
-        self.detalhes = []
+        self.pendentes = {}          # fase ainda nao escrita -> quantas provas dependem dela
     def certo(self, nome):
         self.ok += 1
         print(f'  {VERDE}ok{ZERO}   {nome}')
     def errado(self, nome, esperado, veio):
         self.falhas += 1
+        # Uma fase que ainda NAO FOI ESCRITA nao e a mesma coisa que uma fase
+        # escrita e errada. Repetir dezessete vezes a mesma frase vira um muro
+        # vermelho que nao ensina nada; aqui isso vira uma linha por prova e
+        # UMA orientacao no fim.
+        m = re.search(r'ainda falta escrever: (.+?)(?: \(Entrega|$)', veio)
+        if m:
+            fase = m.group(1).strip()
+            self.pendentes[fase] = self.pendentes.get(fase, 0) + 1
+            print(f'  {CINZA}--{ZERO}   {nome} {CINZA}(espera: {fase}){ZERO}')
+            return
         print(f'  {VERMELHO}FALHA{ZERO} {nome}')
         print(f'         esperado: {CINZA}{esperado}{ZERO}')
         print(f'         veio:     {CINZA}{veio}{ZERO}')
@@ -98,7 +126,7 @@ def conferir_erros(p, prefixo, confere_coluna):
             p.errado(nome, f'erro {fase_e} na linha {linha_e}', 'compilou sem reclamar')
             continue
         if cod != 1:
-            p.errado(nome, 'codigo de saida 1', f'codigo {cod}')
+            p.errado(nome, 'codigo de saida 1', f'codigo {cod}: {err.strip()[:120]}')
             continue
         m = re.search(r'erro (\w+): linha (\d+), coluna (\d+):', err)
         if not m:
@@ -166,7 +194,7 @@ def conferir_execucao_erros(p):
                      err.strip()[:120]); continue
         cod, _, err = rodar(['./executar', os.path.join('testes', 'negativos', base + '.mplb')])
         if cod != 2:
-            p.errado(f'execucao {base}', 'codigo de saida 2', f'codigo {cod}')
+            p.errado(f'execucao {base}', 'codigo de saida 2', f'codigo {cod}: {err.strip()[:120]}')
             continue
         m = re.search(r'erro (execucao): linha (\d+), coluna (\d+):', err)
         if not m:
@@ -271,11 +299,26 @@ def main(argv):
         p = Placar()
         ENTREGAS[n](p)
         total = p.ok + p.falhas
-        if p.falhas:
-            print(f'{VERMELHO}Entrega {n}: {p.falhas} de {total} falharam.{ZERO}')
-            geral = 1
-        else:
+        esperando = sum(p.pendentes.values())
+        if not p.falhas:
             print(f'{VERDE}Entrega {n}: {p.ok} de {total} passaram.{ZERO}')
+            continue
+        geral = 1
+        if esperando == p.falhas:
+            # nada quebrado: so ainda nao escrito
+            print(f'{AMARELO}Entrega {n}: {p.ok} de {total} provas passaram; '
+                  f'{esperando} esperam codigo que ainda nao existe.{ZERO}')
+        else:
+            print(f'{VERMELHO}Entrega {n}: {p.falhas} de {total} falharam'
+                  + (f' ({esperando} por falta de codigo).' if esperando else '.') + ZERO)
+        if p.pendentes:
+            print(f'\n{AMARELO}▸ Por onde comecar{ZERO}')
+            for fase, quantas in p.pendentes.items():
+                arquivo, leitura = onde_escrever(fase)
+                print(f'  Falta escrever: {fase} — {quantas} prova(s) dependem dela.')
+                if arquivo:
+                    print(f'  Escreva em {VERDE}{arquivo}{ZERO}. Leia antes: {CINZA}{leitura}{ZERO}')
+            print(f'  O enunciado completo esta em {CINZA}entregas/E{n}.md{ZERO}')
     return geral
 
 if __name__ == '__main__':
