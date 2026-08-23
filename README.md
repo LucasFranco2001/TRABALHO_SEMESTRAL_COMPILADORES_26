@@ -80,11 +80,16 @@ parentes escondem exatamente a parte que está sendo ensinada. Da E3 em diante
 o assunto é outro, e aí não faz diferença. Na apresentação vocês podem — e
 devem — comparar o parser de vocês com o que um gerador produziria.
 
-**A linguagem de implementação é de vocês.** Python, Java, C, o que preferirem.
-O verificador não olha para dentro: ele roda `./compilar` e `./executar` e
+**A linguagem de implementação é de vocês, entre as que o ambiente da correção
+já tem:** Python 3.12, Java 21, C e C++ (gcc 13), Ruby 3.2 ou PHP 8.3. O
+verificador não olha para dentro — ele roda `./compilar` e `./executar` e
 compara o que sai. O esqueleto em `mplc/` é Python porque é o caminho mais
-curto, mas ninguém é obrigado a usá-lo. Só não dependam de biblioteca que
-precise ser instalada.
+curto, mas ninguém é obrigado a usá-lo.
+
+A lista existe por um motivo prático: a correção roda numa Cloud Shell limpa, e
+o que não estiver lá não roda. Querem outra linguagem? Falem comigo **antes** de
+começar — o critério é ela existir no ambiente sem instalação. Em nenhum caso
+dependam de biblioteca externa: só a biblioteca padrão.
 
 **Escrever o compilador é a tarefa.** Usar IA para explicar um conceito,
 revisar uma mensagem de erro ou entender um trecho é bem-vindo, e eu faço
@@ -102,6 +107,13 @@ make verificar E=2      # confere a Entrega 2 e, junto, a 1
 make verificar          # confere as quatro
 make evidencias E=2     # grava evidencias/verificacao-2.txt, que vai na entrega
 ```
+
+**Antes de entregar, rodem `make prova`.** Ele clona o repositório de vocês num
+diretório limpo e verifica lá — que é exatamente o que a correção faz. É o
+teste que pega o defeito mais comum de todos, e que não tem nada a ver com
+compiladores: *funciona aqui e não no clone*. Arquivo esquecido fora do commit,
+caminho absoluto, passo de compilação que ninguém roda. Vale para qualquer
+linguagem, e é a única prova que realmente antecipa a correção.
 
 Ele não lê o código de vocês. Ele roda o compilador e compara a saída com um
 corpus de **10 programas válidos**, **26 programas que precisam ser

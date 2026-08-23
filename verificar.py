@@ -295,6 +295,30 @@ def conferir_ir(p):
         else:
             p.certo(f'--ir de {base}')
 
+def conferir_saida_limpa(p):
+    """
+    A saida nao pode comecar com BOM.
+
+    Fim de linha NAO e problema: o verificador le a saida com traducao
+    universal, entao CRLF vira \n sozinho e quem edita no Windows nao perde
+    nada. O BOM e outra coisa — ele entra como caractere invisivel na PRIMEIRA
+    linha e derruba a comparacao com um diff que nao explica nada.
+    """
+    progs = [x for x in sorted(os.listdir(os.path.join(T, 'positivos'))) if x.endswith('.mpl')]
+    if not progs:
+        return
+    nome = 'a saida nao comeca com BOM'
+    cod, saida, err = rodar(['./compilar', '--tokens', caminho_teste('positivos', progs[0])])
+    if cod != 0:
+        p.errado(nome, 'a lista de tokens', resumo_erro(err, cod))
+    elif saida.startswith('\ufeff'):
+        p.errado(nome, 'a saida comecando direto no primeiro token',
+                 'ha um BOM (U+FEFF) antes do primeiro caractere — '
+                 'grave os arquivos como "UTF-8 sem BOM"')
+    else:
+        p.certo(nome)
+
+
 def conferir_tokens_sobrevivem_a_sintaxe(p):
     """
     --tokens tem que funcionar num programa com erro de SINTAXE: a fase lexica
@@ -324,6 +348,7 @@ def entrega1(p):
     conferir_despejo(p, '--tokens', 'tokens')
     conferir_erros(p, 'lex', confere_coluna=True)
     conferir_tokens_sobrevivem_a_sintaxe(p)
+    conferir_saida_limpa(p)
 
 def entrega2(p):
     entrega1(p)

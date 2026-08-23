@@ -258,6 +258,20 @@ pessoa consegue ler, está perfeito.
 
 ---
 
+## 6.1 Codificação da saída
+
+Três regras, e uma delas é uma tolerância:
+
+- A saída é **UTF-8**, **sem BOM**. O BOM entra como um caractere invisível
+  antes do primeiro token e derruba a comparação com um erro que não explica
+  nada — por isso existe uma prova só para ele. No editor, gravem como
+  "UTF-8 sem BOM".
+- **O fim de linha não importa.** O verificador lê a saída com tradução
+  universal: `\r\n` vira `\n` sozinho. Quem edita no Windows não perde nada
+  por isso. (Confirmado rodando um compilador que emite CRLF: passa nas 20
+  provas da Entrega 1.)
+- A comparação é byte a byte **depois** dessa normalização de fim de linha.
+
 ## 7. Erros
 
 Formato, fases e códigos de saída: seção 6 da [especificação](LINGUAGEM.md).
