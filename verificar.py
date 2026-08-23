@@ -39,6 +39,7 @@ class Placar:
     def __init__(self):
         self.ok = self.falhas = 0
         self.pendentes = {}          # fase ainda nao escrita -> quantas provas dependem dela
+        self.quebras = {}            # excecao do compilador -> quantas provas ela derrubou
     def certo(self, nome):
         self.ok += 1
         print(f'  {VERDE}ok{ZERO}   {nome}')
@@ -48,6 +49,13 @@ class Placar:
         # escrita e errada. Repetir dezessete vezes a mesma frase vira um muro
         # vermelho que nao ensina nada; aqui isso vira uma linha por prova e
         # UMA orientacao no fim.
+        if 'quebrou: ' in veio:
+            # Uma excecao derruba TODAS as provas pela mesma causa. Mostrar o
+            # mesmo traceback dezessete vezes esconde a unica linha que importa.
+            causa = veio.split('quebrou: ', 1)[1]
+            self.quebras[causa] = self.quebras.get(causa, 0) + 1
+            print(f'  {VERMELHO}!!{ZERO}   {nome} {CINZA}(o compilador quebrou){ZERO}')
+            return
         m = re.search(r'ainda falta escrever: (.+?)(?: \(Entrega|$)', veio)
         if m:
             fase = m.group(1).strip()
@@ -70,6 +78,30 @@ def rodar(cmd, entrada=None, limite=20):
 def ler(caminho):
     with open(caminho, encoding='utf-8') as f:
         return f.read()
+
+def resumo_erro(err, cod=None):
+    """
+    O que MOSTRAR quando o compilador escreve na saida de erro.
+
+    Traceback do Python tem a informacao util na ULTIMA linha; as primeiras
+    sao encanamento do interpretador. Cortar em 120 caracteres joga fora
+    exatamente a mensagem e guarda o lixo — foi o que aconteceu comigo.
+    """
+    err = (err or '').strip()
+    if 'Traceback (most recent call last)' in err:
+        linhas = [l for l in err.split('\n') if l.strip()]
+        excecao = linhas[-1].strip()
+        onde = ''
+        for l in reversed(linhas):
+            m = re.match(r'\s*File "([^"]+)", line (\d+)', l)
+            if m and 'frozen' not in m.group(1):
+                onde = f' — {os.path.basename(m.group(1))}, linha {m.group(2)}'
+                break
+        return f'quebrou: {excecao}{onde}'
+    if err:
+        return err[:120]
+    return f'codigo {cod}' if cod is not None else ''
+
 
 def diferenca(esperado, veio):
     """Primeira linha em que os dois textos divergem, para a mensagem de erro."""
@@ -105,7 +137,7 @@ def conferir_despejo(p, modo, extensao):
         cod, saida, err = rodar(['./compilar', modo, fonte])
         nome = f'{modo} de {base}'
         if cod != 0:
-            p.errado(nome, 'sair com codigo 0', f'codigo {cod}: {err.strip()[:120]}')
+            p.errado(nome, 'sair com codigo 0', f'codigo {cod}: {resumo_erro(err)}')
         elif saida.rstrip('\n') != esperado.rstrip('\n'):
             e, v = diferenca(esperado, saida)
             p.errado(nome, e, v)
@@ -126,11 +158,11 @@ def conferir_erros(p, prefixo, confere_coluna):
             p.errado(nome, f'erro {fase_e} na linha {linha_e}', 'compilou sem reclamar')
             continue
         if cod != 1:
-            p.errado(nome, 'codigo de saida 1', f'codigo {cod}: {err.strip()[:120]}')
+            p.errado(nome, 'codigo de saida 1', f'codigo {cod}: {resumo_erro(err)}')
             continue
         m = re.search(r'erro (\w+): linha (\d+), coluna (\d+):', err)
         if not m:
-            p.errado(nome, 'erro <fase>: linha L, coluna C: ...', err.strip()[:120] or '(stderr vazio)')
+            p.errado(nome, 'erro <fase>: linha L, coluna C: ...', resumo_erro(err) or '(stderr vazio)')
             continue
         veio = (m.group(1), m.group(2), m.group(3))
         alvo = (fase_e, linha_e, coluna_e)
@@ -159,7 +191,7 @@ def conferir_positivos_compilam(p, modo):
             continue
         cod, _, err = rodar(['./compilar', modo, os.path.join('testes', 'positivos', prog)])
         if cod != 0:
-            p.errado(f'aceita {prog[:-4]}', 'passar sem erro', err.strip()[:120] or f'codigo {cod}')
+            p.errado(f'aceita {prog[:-4]}', 'passar sem erro', resumo_erro(err, cod))
         else:
             p.certo(f'aceita {prog[:-4]}')
 
@@ -175,14 +207,14 @@ def conferir_execucao(p):
             os.remove(alvo)
         cod, _, err = rodar(['./compilar', fonte])
         if cod != 0:
-            p.errado(f'executa {base}', 'compilar', err.strip()[:120]); continue
+            p.errado(f'executa {base}', 'compilar', resumo_erro(err)); continue
         if not os.path.exists(alvo):
             p.errado(f'executa {base}', f'gerar {base}.mplb ao lado do fonte', 'o arquivo nao apareceu')
             continue
         cod, saida, err = rodar(['./executar', os.path.join('testes', 'positivos', base + '.mplb')])
         esperado = ler(os.path.join(T, 'positivos', base + '.saida'))
         if cod != 0:
-            p.errado(f'executa {base}', 'sair com codigo 0', f'codigo {cod}: {err.strip()[:120]}')
+            p.errado(f'executa {base}', 'sair com codigo 0', f'codigo {cod}: {resumo_erro(err)}')
         elif saida != esperado:
             e, v = diferenca(esperado, saida)
             p.errado(f'executa {base}', e, v)
@@ -198,15 +230,15 @@ def conferir_execucao_erros(p):
         cod, _, err = rodar(['./compilar', os.path.join('testes', 'negativos', prog)])
         if cod != 0:
             p.errado(f'execucao {base}', 'compilar (o erro e em tempo de execucao)',
-                     err.strip()[:120]); continue
+                     resumo_erro(err)); continue
         cod, _, err = rodar(['./executar', os.path.join('testes', 'negativos', base + '.mplb')])
         if cod != 2:
-            p.errado(f'execucao {base}', 'codigo de saida 2', f'codigo {cod}: {err.strip()[:120]}')
+            p.errado(f'execucao {base}', 'codigo de saida 2', f'codigo {cod}: {resumo_erro(err)}')
             continue
         m = re.search(r'erro (execucao): linha (\d+), coluna (\d+):', err)
         if not m:
             p.errado(f'execucao {base}', 'erro execucao: linha L, coluna C: ...',
-                     err.strip()[:120] or '(stderr vazio)')
+                     resumo_erro(err) or '(stderr vazio)')
         elif m.group(2) != linha_e:
             p.errado(f'execucao {base}', f'linha {linha_e}', f'linha {m.group(2)}')
         else:
@@ -236,7 +268,7 @@ def conferir_ir(p):
         base = prog[:-4]
         cod, saida, err = rodar(['./compilar', '--ir', os.path.join('testes', 'positivos', prog)])
         if cod != 0:
-            p.errado(f'--ir de {base}', 'sair com codigo 0', f'codigo {cod}: {err.strip()[:80]}')
+            p.errado(f'--ir de {base}', 'sair com codigo 0', f'codigo {cod}: {resumo_erro(err)}')
             continue
         if not saida.strip():
             p.errado(f'--ir de {base}', 'o codigo de tres enderecos', 'saida vazia')
@@ -262,7 +294,7 @@ def conferir_tokens_sobrevivem_a_sintaxe(p):
     cod, saida, err = rodar(['./compilar', '--tokens', alvo])
     if cod != 0 or not saida.strip():
         p.errado('--tokens funciona apesar de erro de sintaxe',
-                 'a lista de tokens, codigo 0', f'codigo {cod}: {err.strip()[:80]}')
+                 'a lista de tokens, codigo 0', f'codigo {cod}: {resumo_erro(err)}')
     elif 'FIM_ARQUIVO' not in saida:
         p.errado('--tokens funciona apesar de erro de sintaxe',
                  'a lista terminando em FIM_ARQUIVO', 'nao veio FIM_ARQUIVO')
@@ -311,13 +343,24 @@ def main(argv):
             print(f'{VERDE}Entrega {n}: {p.ok} de {total} passaram.{ZERO}')
             continue
         geral = 1
-        if esperando == p.falhas:
+        quebrado = sum(p.quebras.values())
+        if quebrado:
+            print(f'{VERMELHO}Entrega {n}: {p.falhas} de {total} falharam '
+                  f'({quebrado} porque o compilador quebrou).{ZERO}')
+        elif esperando == p.falhas:
             # nada quebrado: so ainda nao escrito
             print(f'{AMARELO}Entrega {n}: {p.ok} de {total} provas passaram; '
                   f'{esperando} esperam codigo que ainda nao existe.{ZERO}')
         else:
             print(f'{VERMELHO}Entrega {n}: {p.falhas} de {total} falharam'
                   + (f' ({esperando} por falta de codigo).' if esperando else '.') + ZERO)
+        if p.quebras:
+            print(f'\n{VERMELHO}▸ O compilador quebrou{ZERO}')
+            for causa, quantas in p.quebras.items():
+                print(f'  {causa}')
+                print(f'  {quantas} prova(s) morreram nessa mesma pedra — conserte-a primeiro.')
+            print(f'  Para ver o erro inteiro, rode o compilador direto:')
+            print(f'  {CINZA}./compilar --tokens testes/positivos/01-fatorial.mpl{ZERO}')
         if p.pendentes:
             print(f'\n{AMARELO}▸ Por onde comecar{ZERO}')
             for fase, quantas in p.pendentes.items():
