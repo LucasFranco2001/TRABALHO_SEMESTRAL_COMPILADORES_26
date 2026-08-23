@@ -100,6 +100,34 @@ montar s6 "linhas.append(f'  {ins[1]} = {ins[3]} {ins[2]} {ins[4]}')" \
           "linhas.append(f'  {ins[1]} = {ins[3]} {ins[2]} {ins[4]} {ins[2]} {ins[4]}')" \
   && exigir_vermelho "codigo intermediario com dois operadores por linha" 4
 
+# ── o caminho do aluno ────────────────────────────────────────────────────
+# Sabotagem prova que o verificador sabe reprovar. Isto prova o contrario: que
+# ele sabe APROVAR quem fez a parte dela. Foi este teste que pegou a Entrega 3
+# exigindo geracao de codigo — trabalho da Entrega 4 — e reprovando um grupo
+# que tinha feito tudo certo.
+SOL="${MPL_SOLUCAO:-$HOME/projetos/compiladores-lab-gabarito/solucao}"
+if [ -d "$SOL/mplc" ]; then
+  echo "── caminho do aluno: cada entrega verde com as fases DELA, nem uma a mais"
+  aluno=$(mktemp -d)
+  cp -r "$RAIZ/mplc" "$RAIZ/testes" "$RAIZ/verificar.py" "$RAIZ/Makefile" \
+        "$RAIZ/compilar" "$RAIZ/executar" "$aluno/"
+  passo() {
+    n="$1"; shift
+    for arq in "$@"; do cp "$SOL/mplc/$arq" "$aluno/mplc/$arq"; done
+    if (cd "$aluno" && python3 verificar.py "$n" >/dev/null 2>&1); then
+      printf "  ${VERDE}ok${ZERO}    Entrega %s passa com as fases 1..%s escritas\n" "$n" "$n"
+    else
+      printf "  ${VERMELHO}FALHA${ZERO} Entrega %s reprova quem a fez certo — a prova cobra fase que ela nao pede\n" "$n"
+      falhas=$((falhas + 1))
+    fi
+  }
+  passo 1 lexico.py
+  passo 2 sintatico.py
+  passo 3 semantica.py
+  passo 4 intermediario.py gerador.py vm.py
+  rm -rf "$aluno"
+fi
+
 echo
 if [ "$falhas" -eq 0 ]; then
   printf "${VERDE}O verificador sabe ficar vermelho. Um verde dele vale.${ZERO}\n"

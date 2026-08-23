@@ -145,14 +145,21 @@ def conferir_erros(p, prefixo, confere_coluna):
             else:
                 p.certo(nome)
 
-def conferir_positivos_compilam(p):
-    """Nenhum programa valido pode ser recusado."""
+def conferir_positivos_compilam(p, modo):
+    """
+    Nenhum programa valido pode ser recusado pelas fases ja exigidas.
+
+    ⚠️ Roda ate a fase DESTA entrega, nunca o compilador inteiro. Antes daqui
+    a prova mandava compilar tudo — e um grupo que tivesse terminado a Entrega
+    3 corretamente via vermelho, porque a geracao de codigo (Entrega 4) ainda
+    nao existia. A prova cobrava trabalho que a entrega nao pede.
+    """
     for prog in sorted(os.listdir(os.path.join(T, 'positivos'))):
         if not prog.endswith('.mpl'):
             continue
-        cod, _, err = rodar(['./compilar', os.path.join('testes', 'positivos', prog)])
+        cod, _, err = rodar(['./compilar', modo, os.path.join('testes', 'positivos', prog)])
         if cod != 0:
-            p.errado(f'aceita {prog[:-4]}', 'compilar sem erro', err.strip()[:120] or f'codigo {cod}')
+            p.errado(f'aceita {prog[:-4]}', 'passar sem erro', err.strip()[:120] or f'codigo {cod}')
         else:
             p.certo(f'aceita {prog[:-4]}')
 
@@ -279,7 +286,7 @@ def entrega3(p):
     entrega2(p)
     conferir_despejo(p, '--tabela', 'tabela')
     conferir_erros(p, 'sem', confere_coluna=False)
-    conferir_positivos_compilam(p)
+    conferir_positivos_compilam(p, '--tabela')
 
 def entrega4(p):
     entrega3(p)
