@@ -112,6 +112,12 @@ Os programas recusados são metade da nota escondida do trabalho. Um
 compilador que aceita tudo passa em todos os testes positivos e não vale
 nada: é por isso que o corpus tem mais programas errados do que certos.
 
+**A correção usa um segundo corpus, que vocês não têm.** Mesma linguagem,
+mesmas regras, programas diferentes. Um compilador de verdade passa nos dois
+sem que vocês precisem fazer nada; um programa que apenas reproduza as saídas
+esperadas deste corpus passa aqui e reprova lá. Estou dizendo isto abertamente
+para ninguém perder tempo pelo caminho errado.
+
 ---
 
 ## Como entregar

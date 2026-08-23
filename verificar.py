@@ -12,7 +12,18 @@ que sai. Se passar aqui, passa na correcao — e vice-versa.
 import os, re, subprocess, sys
 
 RAIZ = os.path.dirname(os.path.abspath(__file__))
-T = os.path.join(RAIZ, 'testes')
+
+# O corpus pode vir de fora, pela variavel MPL_TESTES. A correcao usa um
+# corpus diferente do que esta aqui: um compilador de verdade passa nos dois,
+# uma tabela que decora as saidas deste passa so neste.
+T = os.path.abspath(os.environ.get('MPL_TESTES') or os.path.join(RAIZ, 'testes'))
+
+
+def caminho_teste(*partes):
+    """Caminho do programa a passar para ./compilar."""
+    caminho = os.path.join(T, *partes)
+    rel = os.path.relpath(caminho, RAIZ)
+    return rel if not rel.startswith('..') else caminho
 VERDE, VERMELHO, AMARELO, CINZA, ZERO = '\033[32m', '\033[31m', '\033[33m', '\033[90m', '\033[0m'
 if not sys.stdout.isatty():
     VERDE = VERMELHO = AMARELO = CINZA = ZERO = ''
@@ -132,7 +143,7 @@ def conferir_despejo(p, modo, extensao):
         if not prog.endswith('.mpl'):
             continue
         base = prog[:-4]
-        fonte = os.path.join('testes', 'positivos', prog)
+        fonte = caminho_teste('positivos', prog)
         esperado = ler(os.path.join(T, 'fases', base + '.' + extensao))
         cod, saida, err = rodar(['./compilar', modo, fonte])
         nome = f'{modo} de {base}'
@@ -151,7 +162,7 @@ def conferir_erros(p, prefixo, confere_coluna):
             continue
         base = prog[:-4]
         fase_e, linha_e, coluna_e = ler(os.path.join(T, 'negativos', base + '.erro')).strip().split('|')
-        fonte = os.path.join('testes', 'negativos', prog)
+        fonte = caminho_teste('negativos', prog)
         cod, saida, err = rodar(['./compilar', fonte])
         nome = f'recusa {base}'
         if cod == 0:
@@ -189,7 +200,7 @@ def conferir_positivos_compilam(p, modo):
     for prog in sorted(os.listdir(os.path.join(T, 'positivos'))):
         if not prog.endswith('.mpl'):
             continue
-        cod, _, err = rodar(['./compilar', modo, os.path.join('testes', 'positivos', prog)])
+        cod, _, err = rodar(['./compilar', modo, caminho_teste('positivos', prog)])
         if cod != 0:
             p.errado(f'aceita {prog[:-4]}', 'passar sem erro', resumo_erro(err, cod))
         else:
@@ -201,7 +212,7 @@ def conferir_execucao(p):
         if not prog.endswith('.mpl'):
             continue
         base = prog[:-4]
-        fonte = os.path.join('testes', 'positivos', prog)
+        fonte = caminho_teste('positivos', prog)
         alvo = os.path.join(T, 'positivos', base + '.mplb')
         if os.path.exists(alvo):
             os.remove(alvo)
@@ -211,7 +222,7 @@ def conferir_execucao(p):
         if not os.path.exists(alvo):
             p.errado(f'executa {base}', f'gerar {base}.mplb ao lado do fonte', 'o arquivo nao apareceu')
             continue
-        cod, saida, err = rodar(['./executar', os.path.join('testes', 'positivos', base + '.mplb')])
+        cod, saida, err = rodar(['./executar', caminho_teste('positivos', base + '.mplb')])
         esperado = ler(os.path.join(T, 'positivos', base + '.saida'))
         if cod != 0:
             p.errado(f'executa {base}', 'sair com codigo 0', f'codigo {cod}: {resumo_erro(err)}')
@@ -227,11 +238,11 @@ def conferir_execucao_erros(p):
             continue
         base = prog[:-4]
         fase_e, linha_e, _ = ler(os.path.join(T, 'negativos', base + '.erro')).strip().split('|')
-        cod, _, err = rodar(['./compilar', os.path.join('testes', 'negativos', prog)])
+        cod, _, err = rodar(['./compilar', caminho_teste('negativos', prog)])
         if cod != 0:
             p.errado(f'execucao {base}', 'compilar (o erro e em tempo de execucao)',
                      resumo_erro(err)); continue
-        cod, _, err = rodar(['./executar', os.path.join('testes', 'negativos', base + '.mplb')])
+        cod, _, err = rodar(['./executar', caminho_teste('negativos', base + '.mplb')])
         if cod != 2:
             p.errado(f'execucao {base}', 'codigo de saida 2', f'codigo {cod}: {resumo_erro(err)}')
             continue
@@ -266,7 +277,7 @@ def conferir_ir(p):
         if not prog.endswith('.mpl'):
             continue
         base = prog[:-4]
-        cod, saida, err = rodar(['./compilar', '--ir', os.path.join('testes', 'positivos', prog)])
+        cod, saida, err = rodar(['./compilar', '--ir', caminho_teste('positivos', prog)])
         if cod != 0:
             p.errado(f'--ir de {base}', 'sair com codigo 0', f'codigo {cod}: {resumo_erro(err)}')
             continue
@@ -290,7 +301,12 @@ def conferir_tokens_sobrevivem_a_sintaxe(p):
     nao olha a sintaxe. Sem esta prova, passa um compilador que so despeja
     tokens depois de o parser aprovar tudo.
     """
-    alvo = os.path.join('testes', 'negativos', 'sin-01-falta-pv.mpl')
+    # qualquer programa com erro de sintaxe serve — o corpus escolhe, nao o nome
+    sintaticos = sorted(x for x in os.listdir(os.path.join(T, 'negativos'))
+                        if x.startswith('sin') and x.endswith('.mpl'))
+    if not sintaticos:
+        return
+    alvo = caminho_teste('negativos', sintaticos[0])
     cod, saida, err = rodar(['./compilar', '--tokens', alvo])
     if cod != 0 or not saida.strip():
         p.errado('--tokens funciona apesar de erro de sintaxe',
