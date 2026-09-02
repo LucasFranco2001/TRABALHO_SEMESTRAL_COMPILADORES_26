@@ -132,6 +132,67 @@ para ninguém perder tempo pelo caminho errado.
 
 ---
 
+## Tabela de tokens (Entrega 1)
+
+Tipos reconhecidos por `mplc/lexico.py`, na ordem em que o laço de
+`analisar()` os testa. Espaço, tabulação, `\r`, `\n` e comentários são
+consumidos e não geram token.
+
+| Categoria | `TIPO` | Reconhecido por | Exemplo de lexema |
+|---|---|---|---|
+| Comentário | *(nenhum)* | `//` até o fim da linha | `// nota` |
+| Comentário | *(nenhum)* | `/*` até o primeiro `*/`, podendo atravessar linhas | `/* bloco */` |
+| Identificador | `ID` | `[a-zA-Z_][a-zA-Z0-9_]*` que **não** seja palavra reservada | `soma`, `_x`, `sePossivel` |
+| Palavra reservada | `FUNCAO` | `funcao` | `funcao` |
+| Palavra reservada | `RETORNE` | `retorne` | `retorne` |
+| Palavra reservada | `SE` | `se` | `se` |
+| Palavra reservada | `SENAO` | `senao` | `senao` |
+| Palavra reservada | `ENQUANTO` | `enquanto` | `enquanto` |
+| Palavra reservada | `ESCREVA` | `escreva` | `escreva` |
+| Palavra reservada | `TIPO_INTEIRO` | `inteiro` | `inteiro` |
+| Palavra reservada | `TIPO_REAL` | `real` | `real` |
+| Palavra reservada | `TIPO_LOGICO` | `logico` | `logico` |
+| Palavra reservada | `TIPO_TEXTO` | `texto` | `texto` |
+| Palavra reservada | `TIPO_VAZIO` | `vazio` | `vazio` |
+| Operador lógico (palavra) | `E` | `e` | `e` |
+| Operador lógico (palavra) | `OU` | `ou` | `ou` |
+| Operador lógico (palavra) | `NAO` | `nao` | `nao` |
+| Literal inteiro | `INTEIRO` | `[0-9]+` | `42` |
+| Literal real | `REAL` | `[0-9]+\.[0-9]+` (dígito obrigatório dos dois lados do ponto) | `3.14` |
+| Literal lógico | `LOGICO` | `verdadeiro` \| `falso` | `verdadeiro` |
+| Literal texto | `TEXTO` | `"` seguido de qualquer caractere (menos `"`, `\n` e `\` isolado) até o `"` de fechamento, na mesma linha; escapes aceitos: `\n` `\t` `\"` `\\` | `"a\nb"` |
+| Operador | `MAIS` | `+` | `+` |
+| Operador | `MENOS` | `-` | `-` |
+| Operador | `VEZES` | `*` | `*` |
+| Operador | `DIVIDE` | `/` (quando não seguido de `/` ou `*`) | `/` |
+| Operador | `RESTO` | `%` | `%` |
+| Relacional | `IGUAL` | `==` | `==` |
+| Relacional | `DIFERENTE` | `!=` | `!=` |
+| Relacional | `MENOR` | `<` (quando não seguido de `=`) | `<` |
+| Relacional | `MENOR_IGUAL` | `<=` | `<=` |
+| Relacional | `MAIOR` | `>` (quando não seguido de `=`) | `>` |
+| Relacional | `MAIOR_IGUAL` | `>=` | `>=` |
+| Atribuição | `ATRIBUI` | `=` (quando não seguido de `=`) | `=` |
+| Delimitador | `ABRE_PAR` | `(` | `(` |
+| Delimitador | `FECHA_PAR` | `)` | `)` |
+| Delimitador | `ABRE_CHAVE` | `{` | `{` |
+| Delimitador | `FECHA_CHAVE` | `}` | `}` |
+| Delimitador | `VIRGULA` | `,` | `,` |
+| Delimitador | `PONTO_VIRGULA` | `;` | `;` |
+| Fim de arquivo | `FIM_ARQUIVO` | posição logo após o último caractere do fonte (lexema vazio) | *(vazio)* |
+
+Duas regras de desambiguação, aplicadas nesta ordem pelo autômato:
+
+1. **Máximo munch em identificadores.** O laço consome a maior sequência
+   alfanumérica possível antes de consultar a tabela de palavras reservadas —
+   por isso `sePossivel` sai como um único `ID`, nunca como `SE` seguido de
+   `ID Possivel`.
+2. **Operadores de dois caracteres antes dos de um.** `==`, `!=`, `<=` e `>=`
+   são testados antes de `=`, `<` e `>`. Sem essa ordem, `x <= 3` sairia como
+   quatro tokens (`x`, `<`, `=`, `3`) em vez de três — a armadilha da E1.
+
+---
+
 ## Como entregar
 
 1. `git push` no repositório do grupo.
