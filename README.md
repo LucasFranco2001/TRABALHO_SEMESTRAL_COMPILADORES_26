@@ -193,6 +193,65 @@ Duas regras de desambiguação, aplicadas nesta ordem pelo autômato:
 
 ---
 
+## Gramática (Entrega 2)
+
+Implementada em `mplc/sintatico.py` por **descida recursiva**: cada regra
+abaixo é uma função com o mesmo nome. EBNF — `{ x }` é zero ou mais, `[ x ]`
+é opcional, terminais entre aspas ou em MAIÚSCULAS (os tipos de token).
+
+```ebnf
+programa       = { funcao } FIM_ARQUIVO ;
+funcao         = "funcao" tipo ID "(" [ parametros ] ")" bloco ;
+parametros     = parametro { "," parametro } ;
+parametro      = tipo ID ;
+tipo           = "inteiro" | "real" | "logico" | "texto" | "vazio" ;
+
+bloco          = "{" { comando } "}" ;
+comando        = declaracao | atribuicao | se | enquanto
+               | escreva | retorne | chamada ";" | bloco ;
+declaracao     = tipo ID [ "=" expressao ] ";" ;
+atribuicao     = ID "=" expressao ";" ;
+se             = "se" "(" expressao ")" bloco [ "senao" bloco ] ;
+enquanto       = "enquanto" "(" expressao ")" bloco ;
+escreva        = "escreva" "(" expressao ")" ";" ;
+retorne        = "retorne" [ expressao ] ";" ;
+
+expressao      = ou ;
+ou             = e              { "ou" e } ;
+e              = igualdade      { "e" igualdade } ;
+igualdade      = relacional     { ( "==" | "!=" ) relacional } ;
+relacional     = aditiva        { ( "<" | "<=" | ">" | ">=" ) aditiva } ;
+aditiva        = multiplicativa { ( "+" | "-" ) multiplicativa } ;
+multiplicativa = unaria         { ( "*" | "/" | "%" ) unaria } ;
+unaria         = ( "nao" | "-" ) unaria | primaria ;
+primaria       = INTEIRO | REAL | LOGICO | TEXTO
+               | chamada | ID | "(" expressao ")" ;
+chamada        = ID "(" [ expressao { "," expressao } ] ")" ;
+```
+
+**Como a precedência está codificada:** há uma regra por nível da seção 3.3
+da especificação, e cada nível só chama o nível **imediatamente mais forte**
+— `ou` chama `e`, que chama `igualdade`, e assim por diante até `primaria`.
+Quanto mais funda a regra, mais forte o operador, e mais perto das folhas
+ele fica na árvore. A associatividade à esquerda vem da repetição `{ ... }`,
+implementada como **laço** (o que já foi lido vira o filho esquerdo do novo
+nó), nunca como recursão à direita; por isso `10 - 4 - 3` vira
+`(10 - 4) - 3`. Só `unaria` chama a si mesma, e é por isso que `nao` e o `-`
+unário são associativos à direita.
+
+Decisões que a gramática não mostra sozinha:
+
+- `comando` que começa com `ID` olha **um token à frente**: `=` é atribuição,
+  `(` é chamada. Qualquer outra coisa é erro, apontado nesse segundo token.
+- O parêntese não gera nó: `(1 + 2) * 3` já sai com o `+` embaixo do `*`.
+- O erro sintático é relatado no token que apareceu no lugar do esperado.
+  Faltando `;`, o erro cai no primeiro token da linha seguinte; faltando `}`,
+  cai no `FIM_ARQUIVO`.
+- `vazio` é aceito como tipo em qualquer lugar pela sintaxe; recusar
+  `vazio x;` ou um parâmetro `vazio` é trabalho da semântica (Entrega 3).
+
+---
+
 ## Como entregar
 
 1. `git push` no repositório do grupo.
