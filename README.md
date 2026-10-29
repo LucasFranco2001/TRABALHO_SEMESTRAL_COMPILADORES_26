@@ -252,6 +252,16 @@ Decisões que a gramática não mostra sozinha:
 
 ---
 
+## Escopos e tabela de símbolos (Entrega 3)
+
+Implementado em `mplc/semantica.py`. Cada escopo é um objeto `Escopo` com um **dicionário próprio** (nome → símbolo, em ordem de declaração) e uma **referência ao escopo pai**: um dicionário encadeado. Procurar um nome é subir a cadeia de pais, e o primeiro escopo que tiver o nome vence, o que dá o sombreamento de graça — a variável de dentro esconde a de fora, e a de fora volta quando o bloco fecha, porque o escopo interno deixa de ser o corrente. Além da cadeia, todos os escopos ficam numa **lista na ordem em que foram abertos**: é ela que dá a numeração e a ordem do `--tabela`.
+
+Escolhemos isso em vez de uma pilha de dicionários porque o escopo **não some** ao fechar: cada `Simbolo` guarda o escopo onde nasceu e cada nó da árvore guarda o seu símbolo, e é disso que a Entrega 4 precisa para transformar nomes em posições de memória. Com uma pilha, o escopo seria descartado no `pop` e essa informação teria de ser guardada à parte.
+
+A análise tem duas passadas: a primeira só coleta as assinaturas das funções no escopo global (por isso uma função pode ser chamada antes de aparecer); a segunda percorre os corpos. O corpo de uma função abre **dois** escopos (parâmetros e bloco), e cada `se`, `enquanto` e `{ }` solto abre mais um. O retorno em todos os caminhos é decidido pela estrutura: `retorne` garante, `se/senao` garante se os dois lados garantem, e `se` sem `senao` e `enquanto` nunca garantem.
+
+* * *
+
 ## Como entregar
 
 1. `git push` no repositório do grupo.
