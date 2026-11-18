@@ -260,6 +260,64 @@ Escolhemos isso em vez de uma pilha de dicionários porque o escopo **não some*
 
 A análise tem duas passadas: a primeira só coleta as assinaturas das funções no escopo global (por isso uma função pode ser chamada antes de aparecer); a segunda percorre os corpos. O corpo de uma função abre **dois** escopos (parâmetros e bloco), e cada `se`, `enquanto` e `{ }` solto abre mais um. O retorno em todos os caminhos é decidido pela estrutura: `retorne` garante, `se/senao` garante se os dois lados garantem, e `se` sem `senao` e `enquanto` nunca garantem.
 
+## Código intermediário e máquina virtual (Entrega 4)
+
+**Código de três endereços** (`mplc/intermediario.py`, `./compilar --ir`). Cada linha de operação tem no máximo um operador; `a + b * c` vira `t0 = b * c` e `t1 = a + t0`. Variáveis do fonte mantêm o nome (se o mesmo nome aparece em dois escopos da função, o segundo vira `nome@escopo`), os resultados intermediários são temporários `t0, t1, ...`, e a conversão `inteiro → real` é uma instrução explícita (`paraReal`) inserida só onde a 3.1 manda. É por isso que `real x = 7 / 2;` dá `3.000000`: a divisão é feita entre dois `inteiro` e só depois o resultado é convertido. Exemplo (`fatorial`):
+
+```
+funcao fatorial inteiro (n inteiro)
+  t0 = n <= 1
+  seFalso t0 desvie L0
+  retorne 1
+L0:
+  t1 = n - 1
+  t2 = chama fatorial t1
+  t3 = n * t2
+  retorne t3
+  retorne
+fim
+```
+
+**Arquivo `.mplb`** (`mplc/gerador.py`): texto legível, uma instrução por linha, que `./executar` lê. Cada função vira `funcao NOME params N locais M ... fim`; cada variável e cada temporário do IR vira um *local* numerado (os parâmetros ocupam os primeiros). Uma linha de três endereços vira "empilha os operandos, opera, guarda no destino". O sufixo `@linha:coluna` é a posição no fonte, usada nos erros de execução; o texto depois de `;` é só comentário (o nome da variável).
+
+**Máquina virtual** (`mplc/vm.py`): uma pilha de operandos e, **para cada chamada, um registro de ativação** (`Quadro`) com os locais daquela chamada e o ponto de volta. `CHAMA` cria um quadro novo; `RETORNA` o descarta e volta ao quadro de quem chamou. Por isso `fatorial(5)` tem cinco quadros vivos, cada um com o seu `n`. Mais de 10 000 quadros vivos é estouro de pilha. Divisão e resto por zero e estouro de pilha são erros de execução (código de saída 2).
+
+### Conjunto de instruções da VM
+
+`a`, `b` são valores da pilha (`b` no topo); `→` mostra o que fica no topo depois.
+
+| Instrução | O que faz com a pilha |
+|---|---|
+| `EMPILHA c` | empilha a constante `c` (`10`, `3.5`, `verdadeiro`, `"texto"`) |
+| `CARREGA n` | empilha o valor do local `n` do quadro atual |
+| `GUARDA n` | desempilha o topo e grava no local `n` |
+| `SOMA` | `a b → a+b` (números, ou concatenação de dois `texto`) |
+| `SUB` | `a b → a-b` |
+| `MULT` | `a b → a*b` |
+| `DIV` | `a b → a/b`; entre dois `inteiro` trunca em direção a zero (`7/2 = 3`); `b = 0` é erro de execução |
+| `RESTO` | `a b → a%b` com o sinal do dividendo (`-7 % 3 = -1`); `b = 0` é erro de execução |
+| `IGUAL` / `DIFERENTE` | `a b → a==b` / `a!=b` (`logico`) |
+| `MENOR` / `MENORIGUAL` | `a b → a<b` / `a<=b` (`logico`) |
+| `MAIOR` / `MAIORIGUAL` | `a b → a>b` / `a>=b` (`logico`) |
+| `E` / `OU` | `a b → a e b` / `a ou b` (os dois lados já foram avaliados: sem curto-circuito) |
+| `NAO` | `a → nao a` |
+| `NEG` | `a → -a` |
+| `PARAREAL` | `a → a` convertido de `inteiro` para `real` |
+| `DESVIA L` | salta para o rótulo `L`; não mexe na pilha |
+| `DESVIAFALSO L` | desempilha `a`; se for `falso`, salta para `L` |
+| `ESCREVE` | desempilha `a` e imprime com a quebra de linha (`real` com 6 casas, `logico` como `verdadeiro`/`falso`) |
+| `CHAMA f n` | desempilha `n` argumentos para os primeiros locais de um quadro **novo** de `f` e passa a executá-lo; guarda o ponto de volta |
+| `RETORNAVAL` | descarta o quadro atual e volta ao chamador; o valor de retorno (o topo) fica na pilha para ele |
+| `RETORNA` | descarta o quadro atual e volta ao chamador, sem valor (função `vazio`) |
+
+### Programa do grupo
+
+`exemplos/laboratorio.mpl` (saída em `exemplos/laboratorio.saida`): mdc, primos, números perfeitos, passos de Collatz, raiz quadrada por Newton, fibonacci e fatorial recursivos, recursão mútua (`ehPar`/`ehImpar`) e as armadilhas de divisão e resto.
+
+```bash
+./compilar exemplos/laboratorio.mpl && ./executar exemplos/laboratorio.mplb
+```
+
 * * *
 
 ## Como entregar
